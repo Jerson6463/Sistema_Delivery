@@ -1,0 +1,52 @@
+# ================================
+# Variables de entorno (seguridad)
+# ================================
+.env
+
+# ================================
+# Django – Archivos generados
+# ================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+*.sqlite3
+
+# ================================
+# Medios subidos por usuarios (media)
+# ================================
+media/
+
+# ================================
+# Archivos estáticos recolectados (si usas collectstatic)
+# ================================
+staticfiles/
+
+# ================================
+# Entorno virtual (si existe local)
+# ================================
+venv/
+env/
+.venv/
+
+# ================================
+# Docker – Volúmenes de datos de BD
+# ================================
+postgres_data/
+pgdata/
+data/
+
+# ================================
+# Sistema operativo
+# ================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ================================
+# Cobertura de tests
+# ================================
+htmlcov/
+.coverage
+.coverage.*
