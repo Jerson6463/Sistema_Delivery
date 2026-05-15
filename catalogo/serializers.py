@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Negocio, Producto, Zona, TipoVehiculo
-from validators import validar_formato_horario
+from .validators import validar_formato_horario
 
 
 class ZonaSerializer(serializers.ModelSerializer):

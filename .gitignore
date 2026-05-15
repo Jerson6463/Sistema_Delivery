@@ -10,7 +10,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.log
-*.sqlite3
 
 # ================================
 # Medios subidos por usuarios (media)
@@ -50,3 +49,9 @@ Thumbs.db
 htmlcov/
 .coverage
 .coverage.*
+
+# ================================
+# Django – Migraciones automáticas
+# ================================
+*/migrations/0*.py
+!*/migrations/__init__.py
