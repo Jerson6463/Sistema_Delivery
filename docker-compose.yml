@@ -42,5 +42,17 @@ services:
     depends_on:
       - db
 
+  frontend:
+    image: node:20-alpine
+    container_name: delivery_vue
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host" 
+    depends_on:
+      - web
+
 volumes:
   postgres_data:

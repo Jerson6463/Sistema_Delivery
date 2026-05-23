@@ -14,11 +14,17 @@ class PedidoSerializer(serializers.ModelSerializer):
     detalles = DetallePedidoSerializer(many=True)
     nombre_negocio = serializers.ReadOnlyField(source='negocio.nombre')
     estado_display = serializers.ReadOnlyField(source='get_estado_display')
+    nombre_cliente = serializers.ReadOnlyField(source='cliente.usuario.first_name')
+    apellido_cliente = serializers.ReadOnlyField(source='cliente.usuario.last_name')
+    # Navegamos hasta el perfil Cliente para sacar la dirección base y el teléfono
+    direccion_cliente = serializers.ReadOnlyField(source='cliente.direccion_principal')
+    telefono_cliente = serializers.ReadOnlyField(source='cliente.telefono')
 
     class Meta:
         model = Pedido
         fields = [
-            'id', 'cliente', 'negocio', 'nombre_negocio', 'repartidor', 
+            'id', 'cliente', 'nombre_cliente', 'apellido_cliente', 'direccion_cliente', 'telefono_cliente',
+            'negocio', 'nombre_negocio', 'repartidor', 
             'estado', 'estado_display', 'subtotal', 'costo_envio', 'total', 
             'direccion_entrega', 'detalles', 'creado_en'
         ]
