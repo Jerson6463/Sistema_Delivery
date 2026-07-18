@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Pedidos - {{ negocio.nombre }}{% endblock %}
+{% block content %}
+<h2 class="mb-4">Pedidos de {{ negocio.nombre }}</h2>
+
+<div id="lista-pedidos" data-negocio-id="{{ negocio.id }}">
+  {% include "orders/_lista_pedidos.html" %}
+</div>
+
+<script>
+  const URL_PEDIDOS = "{% url 'panel_negocio_pedidos' %}";
+  const contenedor = document.getElementById('lista-pedidos');
+  const NEGOCIO_ID = contenedor.dataset.negocioId;
+
+  // Recarga SOLO la sección de pedidos pidiendo al backend el fragmento ya
+  // renderizado y validado (mismos filtros, estados, permisos y acciones que la
+  // página completa). Reemplazar el HTML del contenedor de una sola vez evita
+  // pedidos duplicados y hace que un pedido entregado —que ya no pasa el filtro
+  // de "solo activos"— desaparezca automáticamente de la vista.
+  let recargando = false;
+  let pendiente = false;
+  async function refrescarPedidos() {
+    // Si ya hay un refresco en curso, marca que hace falta otro al terminar en
+    // lugar de descartarlo: así no se pierde el último evento recibido.
+    if (recargando) { pendiente = true; return; }
+    recargando = true;
+    try {
+      const r = await fetch(URL_PEDIDOS, {
+        headers: { 'X-Requested-With': 'fetch' },
+        credentials: 'same-origin',
+      });
+      if (r.ok) { contenedor.innerHTML = await r.text(); }
+    } catch (e) {
+      /* sin conexión: la lista actual queda intacta y se reintenta al reconectar */
+    } finally {
+      recargando = false;
+      if (pendiente) { pendiente = false; refrescarPedidos(); }
+    }
+  }
+
+  // WebSocket: el negocio recibe un evento al crearse un pedido o al cambiar su
+  // estado. No usamos el contenido del evento para pintar; solo lo tomamos como
+  // señal para pedir el fragmento validado al backend.
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const WS_URL = `${proto}://${location.host}/ws/negocios/${NEGOCIO_ID}/pedidos/`;
+
+  let ws = null;
+  let intentosReconexion = 0;
+  let reconectarTimer = null;
+
+  function conectar() {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      // Al (re)conectar, sincroniza inmediatamente: cubre los pedidos creados
+      // entre el render inicial y la suscripción, y los eventos perdidos
+      // mientras el socket estuvo caído. Así la vista se auto-repara.
+      intentosReconexion = 0;
+      refrescarPedidos();
+    };
+
+    ws.onmessage = () => refrescarPedidos();
+
+    ws.onclose = () => {
+      // Reconexión automática con backoff exponencial (tope 15 s). runserver
+      // corta el WS en cada autoreload y la red puede caerse; sin esto el panel
+      // quedaría mudo hasta recargar la página a mano.
+      const espera = Math.min(1000 * 2 ** intentosReconexion, 15000);
+      intentosReconexion += 1;
+      clearTimeout(reconectarTimer);
+      reconectarTimer = setTimeout(conectar, espera);
+    };
+
+    // Un error deja el socket en estado inservible: ciérralo para disparar la
+    // lógica de reconexión de onclose en vez de quedarse colgado.
+    ws.onerror = () => { ws.close(); };
+  }
+
+  conectar();
+</script>
+{% endblock %}

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Delivery Local{% endblock %}</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+    <style>
+      /* ============================================================
+         Sistema de diseño — capa visual sobre Bootstrap 5.3.
+         Solo estilos: no cambia clases funcionales, IDs ni JS.
+         ============================================================ */
+      :root {
+        --brand:        #ef5b2b;   /* naranja delivery */
+        --brand-600:    #d94a1f;
+        --brand-700:    #b93d18;
+        --brand-soft:   #fdeee8;
+        --ink:          #1f2733;   /* texto principal */
+        --ink-soft:     #5b6675;   /* texto secundario */
+        --canvas:       #f5f6f8;   /* fondo de página */
+        --surface:      #ffffff;   /* tarjetas / superficies */
+        --line:         #e9ecf1;   /* bordes suaves */
+        --radius:       .85rem;
+        --radius-sm:    .6rem;
+        --shadow-sm:    0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.05);
+        --shadow-md:    0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.04);
+        --shadow-lg:    0 12px 32px rgba(16,24,40,.14);
+        --font: "Segoe UI", -apple-system, BlinkMacSystemFont, "Inter", Roboto,
+                 Helvetica, Arial, sans-serif;
+      }
+
+      body {
+        font-family: var(--font);
+        background-color: var(--canvas);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3, h4, h5, h6 { font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+      .text-muted { color: var(--ink-soft) !important; }
+      a { text-decoration: none; }
+
+      /* ---------------- Navbar ---------------- */
+      .app-navbar {
+        background: #141a22;
+        box-shadow: 0 2px 10px rgba(0,0,0,.15);
+      }
+      .app-navbar .navbar-brand {
+        font-weight: 800;
+        letter-spacing: -.02em;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+      }
+      .app-navbar .brand-dot {
+        width: .7rem; height: .7rem; border-radius: 50%;
+        background: var(--brand); display: inline-block;
+        box-shadow: 0 0 0 4px rgba(239,91,43,.25);
+      }
+      .app-navbar .navbar-user {
+        color: rgba(255,255,255,.65); font-size: .875rem; white-space: nowrap;
+      }
+      /* Enlaces de módulo: estado normal / hover / activo bien diferenciados. */
+      .app-navbar .nav-link {
+        color: rgba(255,255,255,.78);
+        font-weight: 600;
+        border-radius: .5rem;
+        padding: .4rem .8rem;
+        transition: color .15s ease, background-color .15s ease;
+      }
+      .app-navbar .nav-link:hover,
+      .app-navbar .nav-link:focus { color: #fff; }
+      .app-navbar .nav-link.active {
+        color: #fff;
+        background: rgba(255,255,255,.14);        /* sección activa resaltada */
+      }
+      .app-navbar .navbar-nav { gap: .25rem; }
+
+      /* Menús desplegables (Admin / Cuenta). */
+      .dropdown-menu {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-md);
+        padding: .35rem;
+        margin-top: .4rem;
+      }
+      .dropdown-item {
+        border-radius: .45rem;
+        padding: .5rem .7rem;
+        font-weight: 500;
+      }
+      .dropdown-item.active, .dropdown-item:active {
+        background: var(--brand); color: #fff;
+      }
+      .dropdown-header {
+        font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+        color: var(--ink-soft); font-weight: 700;
+      }
+
+      /* Breadcrumbs: ubicación del usuario dentro del sistema. */
+      .breadcrumb {
+        --bs-breadcrumb-divider-color: #b6bfca;
+        font-size: .85rem;
+        margin-bottom: 1.25rem;
+        padding: .5rem .9rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-sm);
+      }
+      .breadcrumb-item a { color: var(--ink-soft); font-weight: 600; }
+      .breadcrumb-item a:hover { color: var(--brand-600); }
+      .breadcrumb-item.active { color: var(--ink); font-weight: 600; }
+
+      /* ---------------- Botones ---------------- */
+      .btn {
+        --bs-btn-border-radius: .6rem;
+        --bs-btn-font-weight: 600;
+        border-radius: .6rem;
+        font-weight: 600;
+        transition: transform .06s ease, box-shadow .15s ease, background-color .15s ease,
+                    border-color .15s ease, color .15s ease;
+      }
+      .btn:hover  { transform: translateY(-1px); }
+      .btn:active { transform: translateY(0); }
+      .btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 .25rem rgba(239,91,43,.35);
+      }
+      .btn:disabled, .btn.disabled { opacity: .55; transform: none; box-shadow: none; }
+
+      .btn-primary {
+        --bs-btn-bg: var(--brand);
+        --bs-btn-border-color: var(--brand);
+        --bs-btn-hover-bg: var(--brand-600);
+        --bs-btn-hover-border-color: var(--brand-600);
+        --bs-btn-active-bg: var(--brand-700);
+        --bs-btn-active-border-color: var(--brand-700);
+        --bs-btn-disabled-bg: var(--brand);
+        --bs-btn-disabled-border-color: var(--brand);
+        box-shadow: 0 2px 8px rgba(239,91,43,.28);
+      }
+      .btn-outline-primary {
+        --bs-btn-color: var(--brand-600);
+        --bs-btn-border-color: var(--brand);
+        --bs-btn-hover-bg: var(--brand);
+        --bs-btn-hover-border-color: var(--brand);
+        --bs-btn-active-bg: var(--brand-600);
+        --bs-btn-active-border-color: var(--brand-600);
+      }
+      .btn-success { box-shadow: 0 2px 8px rgba(25,135,84,.22); }
+
+      /* ---------------- Tarjetas ---------------- */
+      .card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow .18s ease, transform .18s ease;
+      }
+      .card:hover { box-shadow: var(--shadow-md); }
+      .card-body { padding: 1.25rem 1.35rem; }
+      .card-title { font-weight: 700; }
+
+      /* ---------------- Tablas ---------------- */
+      .table {
+        --bs-table-bg: transparent;
+        border-color: var(--line);
+        margin-bottom: 0;
+      }
+      .table > thead th {
+        text-transform: uppercase;
+        font-size: .72rem;
+        letter-spacing: .04em;
+        color: var(--ink-soft);
+        font-weight: 700;
+        border-bottom: 1px solid var(--line);
+        padding-top: .85rem; padding-bottom: .85rem;
+      }
+      .table > tbody td { padding-top: .85rem; padding-bottom: .85rem; vertical-align: middle; }
+      .table > tbody tr { transition: background-color .12s ease; }
+      .table:not(.table-striped) > tbody tr:hover { background-color: #fafbfc; }
+      /* Envoltura visual de tablas dentro de una superficie tipo tarjeta. */
+      .table-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+      }
+
+      /* ---------------- Formularios ---------------- */
+      .form-label { font-weight: 600; color: var(--ink); margin-bottom: .35rem; }
+      .form-control, .form-select {
+        border-radius: var(--radius-sm);
+        border-color: var(--line);
+        padding: .55rem .8rem;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .form-control:focus, .form-select:focus {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 .2rem rgba(239,91,43,.18);
+      }
+      .form-control::placeholder { color: #9aa4b2; }
+
+      /* Formularios generados con {{ form.as_p }} (login, registro, perfil):
+         sus inputs NO traen .form-control, así que se estilizan por tipo para
+         que luzcan igual que el resto. Se excluyen (:not) los que ya usan
+         clases de Bootstrap, para no alterar los widgets ya estilizados. */
+      main form p { margin-bottom: 1rem; }
+      main form p label { display: block; font-weight: 600; margin-bottom: .35rem; color: var(--ink); }
+      main input:not(.form-control):not(.form-check-input):is(
+        [type="text"],[type="email"],[type="password"],[type="number"],
+        [type="tel"],[type="url"],[type="date"],[type="time"],[type="search"]),
+      main textarea:not(.form-control),
+      main select:not(.form-select):not(.form-control) {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        padding: .55rem .8rem;
+        font-family: inherit;
+        font-size: 1rem;
+        color: var(--ink);
+        background: #fff;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      main input:not(.form-control):not(.form-check-input):is(
+        [type="text"],[type="email"],[type="password"],[type="number"],
+        [type="tel"],[type="url"],[type="date"],[type="time"],[type="search"]):focus,
+      main textarea:not(.form-control):focus,
+      main select:not(.form-select):not(.form-control):focus {
+        outline: none;
+        border-color: var(--brand);
+        box-shadow: 0 0 0 .2rem rgba(239,91,43,.18);
+      }
+
+      /* ---------------- Alertas ---------------- */
+      .alert {
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        border-left-width: 4px;
+        box-shadow: var(--shadow-sm);
+        font-size: .95rem;
+      }
+
+      /* ---------------- Badges / estados ---------------- */
+      .badge {
+        font-weight: 600;
+        letter-spacing: .01em;
+        padding: .4em .7em;
+        border-radius: 999px;
+      }
+
+      /* Etiqueta de estado de pedido: un color por etapa del ciclo de vida.
+         La clase se deriva del código de estado (estado-RECIBIDO, etc.). */
+      .estado-badge {
+        display: inline-block;
+        padding: .38em .75em;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: .78rem;
+        background: #eef1f5;
+        color: #475569;                      /* fallback neutro */
+      }
+      .estado-RECIBIDO          { background: #e7eefc; color: #1d4ed8; }
+      .estado-CONFIRMADO        { background: #e0f2f1; color: #0f766e; }
+      .estado-EN_PREPARACION    { background: #fff3e0; color: #b45309; }
+      .estado-LISTO_PARA_RECOJO { background: #ede7f6; color: #6d28d9; }
+      .estado-EN_CAMINO         { background: #ffe9e0; color: #c2410c; }
+      .estado-ENTREGADO         { background: #e6f6ec; color: #15803d; }
+      .estado-CANCELADO         { background: #fdecea; color: #b91c1c; }
+
+      /* ---------------- Modales ---------------- */
+      .modal-content {
+        border: none;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+      .modal-header, .modal-footer { border-color: var(--line); }
+      .modal-header { padding: 1.1rem 1.35rem; }
+      .modal-body   { padding: 1.35rem; }
+      .modal-footer { padding: 1rem 1.35rem; }
+
+      /* ---------------- Utilidades / hero ---------------- */
+      main.container { max-width: 1140px; }
+      .hero {
+        background: linear-gradient(135deg, #fff 0%, var(--brand-soft) 100%);
+        border: 1px solid var(--line);
+        border-radius: 1.25rem;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* ---------------- Responsive ---------------- */
+      @media (max-width: 575.98px) {
+        /* Tablas anchas: scroll horizontal en móviles en lugar de romper el layout. */
+        .table { display: block; overflow-x: auto; white-space: nowrap; }
+        .card-body { padding: 1rem; }
+      }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark app-navbar sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <span class="brand-dot"></span> Delivery Local
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#navMain" aria-controls="navMain"
+                    aria-expanded="false" aria-label="Menú">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMain">
+                {% with cur=request.resolver_match.url_name %}
+                <!-- Módulos por rol (navegación principal) -->
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                {% if user.is_authenticated %}
+                    {% if user.es_cliente %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'lista_negocios' or cur == 'detalle_negocio' %}active{% endif %}"
+                               href="{% url 'lista_negocios' %}">Negocios</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'mis_pedidos' or cur == 'tracking_pedido' %}active{% endif %}"
+                               href="{% url 'mis_pedidos' %}">Mis pedidos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'ver_carrito' %}active{% endif %}"
+                               href="{% url 'ver_carrito' %}">Carrito</a>
+                        </li>
+                    {% endif %}
+                    {% if user.es_negocio %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'panel_negocio_pedidos' %}active{% endif %}"
+                               href="{% url 'panel_negocio_pedidos' %}">Pedidos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'panel_productos' or cur == 'crear_producto' or cur == 'editar_producto' %}active{% endif %}"
+                               href="{% url 'panel_productos' %}">Productos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'configuracion_negocio' %}active{% endif %}"
+                               href="{% url 'configuracion_negocio' %}">Configuración</a>
+                        </li>
+                    {% endif %}
+                    {% if user.es_repartidor %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if cur == 'mi_pedido' %}active{% endif %}"
+                               href="{% url 'mi_pedido' %}">Mi pedido</a>
+                        </li>
+                    {% endif %}
+                    {% if user.es_admin %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if cur == 'admin_dashboard' or cur == 'gestionar_zonas' or cur == 'configurar_tarifas' %}active{% endif %}"
+                               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
+                            <ul class="dropdown-menu">
+                                <li><h6 class="dropdown-header">Administración</h6></li>
+                                <li><a class="dropdown-item {% if cur == 'admin_dashboard' %}active{% endif %}"
+                                       href="{% url 'admin_dashboard' %}">Panel de control</a></li>
+                                <li><a class="dropdown-item {% if cur == 'gestionar_zonas' %}active{% endif %}"
+                                       href="{% url 'gestionar_zonas' %}">Zonas y distritos</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                {% endif %}
+                </ul>
+
+                <!-- Cuenta (acciones secundarias) -->
+                <ul class="navbar-nav align-items-lg-center mt-2 mt-lg-0">
+                {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ user.get_full_name|default:user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-lg-end">
+                            <li><h6 class="dropdown-header">{{ user.get_rol_display }}</h6></li>
+                            <li><a class="dropdown-item {% if cur == 'editar_perfil' %}active{% endif %}"
+                                   href="{% url 'editar_perfil' %}">Mi perfil</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{% url 'logout' %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">Cerrar sesión</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a href="{% url 'login' %}" class="btn btn-sm btn-primary">Iniciar sesión</a>
+                    </li>
+                {% endif %}
+                </ul>
+                {% endwith %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-4">
+        {% block breadcrumb %}{% endblock %}
+        {% if messages %}
+            <div id="mensajes">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} fade show">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}
+        <div class="hero text-center py-5 px-3 my-4">
+            <h1 class="mb-3">Delivery Local</h1>
+            <p class="text-muted mb-4">Tu plataforma de delivery local, rápida y cercana.</p>
+            <a href="{% url 'lista_negocios' %}" class="btn btn-primary btn-lg">Ver negocios</a>
+        </div>
+        {% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Las alertas de mensajes (p. ej. "Agregado al carrito", "Perfil
+      // actualizado") se ocultan solas a los 3 s con un desvanecido suave.
+      document.querySelectorAll('#mensajes .alert').forEach((alerta) => {
+        setTimeout(() => {
+          alerta.classList.remove('show');           // dispara el fade de Bootstrap
+          alerta.addEventListener('transitionend', () => alerta.remove());
+          setTimeout(() => alerta.remove(), 600);     // respaldo si no hay transición
+        }, 3000);
+      });
+    </script>
+</body>
+</html>

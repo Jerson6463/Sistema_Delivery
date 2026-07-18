@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Panel de administración{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Panel de administración</h2>
+  <a href="{% url 'gestionar_zonas' %}" class="btn btn-outline-primary">
+    Gestionar zonas y distritos
+  </a>
+</div>
+
+<!-- Métricas -->
+<div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+  {% include "dashboard/_metrica.html" with titulo="Pedidos hoy" valor=m.pedidos_hoy color="primary" %}
+  {% include "dashboard/_metrica.html" with titulo="Entregados hoy" valor=m.entregados_hoy color="success" %}
+  {% include "dashboard/_metrica.html" with titulo="Cancelados hoy" valor=m.cancelados_hoy color="danger" %}
+  {% include "dashboard/_metrica.html" with titulo="Vendido hoy (S/)" valor=m.total_vendido color="dark" %}
+  {% include "dashboard/_metrica.html" with titulo="Negocios activos" valor=m.negocios_activos color="info" %}
+  {% include "dashboard/_metrica.html" with titulo="Repartidores libres" valor=m.repartidores_disponibles color="info" %}
+  {% include "dashboard/_metrica.html" with titulo="Sin repartidor" valor=m.pendientes_repartidor color="warning" %}
+</div>
+
+<!-- Negocios pendientes de aprobación -->
+<h4>Negocios pendientes de aprobación</h4>
+<table class="table align-middle mb-4">
+  <thead><tr><th>Negocio</th><th>Dueño</th><th>Categoría</th><th></th></tr></thead>
+  <tbody>
+    {% for n in negocios_pendientes %}
+      <tr>
+        <td>{{ n.nombre }}</td>
+        <td>{{ n.usuario_dueno.get_full_name|default:n.usuario_dueno.username }}</td>
+        <td>{{ n.get_categoria_display }}</td>
+        <td class="text-end">
+          <a href="{% url 'configurar_tarifas' n.id %}" class="btn btn-sm btn-outline-primary">Tarifas</a>
+          <form action="{% url 'aprobar_negocio' n.id %}" method="post" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-success">Aprobar</button>
+          </form>
+          <form action="{% url 'rechazar_negocio' n.id %}" method="post" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Rechazar</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-muted">No hay negocios pendientes.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Repartidores pendientes -->
+<h4>Repartidores pendientes de aprobación</h4>
+<table class="table align-middle mb-4">
+  <thead><tr><th>Usuario</th><th>Zona</th><th>Vehículo</th><th></th></tr></thead>
+  <tbody>
+    {% for r in repartidores_pendientes %}
+      <tr>
+        <td>{{ r.usuario.get_full_name|default:r.usuario.username }}</td>
+        <td>{{ r.zona_cobertura }}</td>
+        <td>{{ r.get_vehiculo_display }}</td>
+        <td class="text-end">
+          <form action="{% url 'aprobar_repartidor' r.id %}" method="post" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-success">Aprobar</button>
+          </form>
+          <form action="{% url 'rechazar_repartidor' r.id %}" method="post" class="d-inline">
+            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Rechazar</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-muted">No hay repartidores pendientes.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Pedidos del día -->
+<h4>Pedidos del día</h4>
+<table class="table table-striped align-middle mb-4">
+  <thead><tr><th>#</th><th>Cliente</th><th>Negocio</th><th>Estado</th><th>Total</th></tr></thead>
+  <tbody>
+    {% for p in pedidos_dia %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.cliente.get_full_name|default:p.cliente.username }}</td>
+        <td>{{ p.negocio.nombre }}</td>
+        <td>{% include "orders/_estado_badge.html" with estado=p.estado display=p.get_estado_display %}</td>
+        <td>S/ {{ p.total }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="text-muted">No hay pedidos hoy.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="text-muted small">
+  Para gestión avanzada (editar/eliminar registros a bajo nivel) queda disponible
+  el <a href="/admin/">Django Admin</a> como respaldo técnico.
+</p>
+
+<script>
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/admin/dashboard/`);
+  ws.onmessage = () => location.reload();  // refresca métricas ante cambios
+</script>
+{% endblock %}

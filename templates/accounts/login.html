@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block content %}
+<div class="row justify-content-center py-lg-4">
+  <div class="col-md-5 col-lg-4">
+    <div class="card">
+      <div class="card-body p-4">
+        <h2 class="mb-1 text-center">Iniciar sesión</h2>
+        <p class="text-muted text-center mb-4">Bienvenido de nuevo a Delivery Local</p>
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <form method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button type="submit" class="btn btn-primary w-100">Entrar</button>
+        </form>
+
+        <hr class="my-4">
+        <p class="text-center text-muted mb-3">¿No tienes cuenta?</p>
+        <div class="d-grid gap-2">
+          <a href="{% url 'registro_cliente' %}" class="btn btn-outline-secondary btn-sm">Soy cliente</a>
+          <a href="{% url 'registro_negocio' %}" class="btn btn-outline-secondary btn-sm">Soy negocio</a>
+          <a href="{% url 'registro_repartidor' %}" class="btn btn-outline-secondary btn-sm">Soy repartidor</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

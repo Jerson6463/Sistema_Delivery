@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Mi pedido{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0">Panel del repartidor</h2>
+    <span class="text-muted">⭐ {{ repartidor.calificacion_promedio }} de calificación promedio</span>
+  </div>
+  <form action="{% url 'toggle_disponibilidad' %}" method="post">
+    {% csrf_token %}
+    {% if repartidor.disponible %}
+      <button class="btn btn-outline-success">Disponible ✓ (poner en descanso)</button>
+    {% else %}
+      <button class="btn btn-outline-secondary">En descanso (ponerme disponible)</button>
+    {% endif %}
+  </form>
+</div>
+
+{% if pedido %}
+  <div class="card">
+    <div class="card-body">
+      <h5>Pedido #{{ pedido.id }}
+        {% include "orders/_estado_badge.html" with estado=pedido.estado display=pedido.get_estado_display %}
+      </h5>
+      <p class="mb-1"><strong>Negocio:</strong> {{ pedido.negocio.nombre }}</p>
+      <p class="mb-1"><strong>Entrega:</strong> {{ pedido.direccion_entrega }}
+         ({{ pedido.zona_entrega }})</p>
+      <p class="mb-0"><strong>Total:</strong> S/ {{ pedido.total }}</p>
+
+      <div class="mt-3">
+        {% if pedido.estado == "LISTO_PARA_RECOJO" %}
+          <form action="{% url 'marcar_recogido' %}" method="post">
+            {% csrf_token %}
+            <button class="btn btn-primary">Marcar recogido (en camino)</button>
+          </form>
+        {% elif pedido.estado == "EN_CAMINO" %}
+          <form action="{% url 'marcar_entregado' %}" method="post">
+            {% csrf_token %}
+            <button class="btn btn-success">Marcar entregado</button>
+          </form>
+
+          <hr>
+          <p id="ubic-estado" class="small text-muted mb-0">Iniciando envío automático de tu ubicación…</p>
+
+          <script>
+            // Envío automático y constante de la ubicación GPS mientras el
+            // pedido está EN_CAMINO. Sin campos ni botones manuales: se usa
+            // el mismo endpoint que ya valida en backend la propiedad del
+            // pedido y el rango de lat/lng.
+            (function () {
+              const REP_ID = {{ repartidor.id }};
+              const msg = document.getElementById('ubic-estado');
+
+              function getCookie(name) {
+                const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return v ? v.pop() : '';
+              }
+              function estado(texto, clase) {
+                msg.textContent = texto;
+                msg.className = 'small ' + clase;
+              }
+
+              if (!('geolocation' in navigator)) {
+                estado('Tu navegador no permite acceder a la ubicación GPS.', 'text-danger');
+                return;
+              }
+
+              let watchId = null;
+              let detenido = false;
+
+              function detener() {
+                detenido = true;
+                if (watchId !== null) {
+                  navigator.geolocation.clearWatch(watchId);
+                  watchId = null;
+                }
+              }
+
+              async function enviar(lat, lng) {
+                if (detenido) { return; }
+                try {
+                  const r = await fetch(`/api/repartidores/${REP_ID}/ubicacion/`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({latitud: lat.toFixed(6), longitud: lng.toFixed(6)})
+                  });
+                  if (r.ok) {
+                    estado('📍 Enviando tu ubicación automáticamente…', 'text-success');
+                  } else if (r.status === 400 || r.status === 403) {
+                    // El pedido ya no está EN_CAMINO (entregado/cancelado) o no
+                    // te pertenece: dejamos de enviar para no insistir en vano.
+                    detener();
+                  }
+                } catch (e) {
+                  // Sin conexión momentánea: se reintenta en la próxima lectura.
+                }
+              }
+
+              function onError(err) {
+                if (err.code === err.PERMISSION_DENIED) {
+                  estado('Debes permitir el acceso a tu ubicación para enviar tu posición.', 'text-danger');
+                } else {
+                  estado('No se pudo obtener tu ubicación GPS.', 'text-danger');
+                }
+              }
+
+              // watchPosition envía la posición de forma constante ante cada
+              // cambio del GPS, sin recargar la página ni intervención manual.
+              watchId = navigator.geolocation.watchPosition(
+                (p) => enviar(p.coords.latitude, p.coords.longitude),
+                onError,
+                { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+              );
+
+              // Al abandonar la página se libera el watcher.
+              window.addEventListener('beforeunload', detener);
+            })();
+          </script>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% else %}
+  <p class="text-muted">No tienes ningún pedido asignado en este momento.</p>
+{% endif %}
+
+<script>
+  // Detección automática de asignaciones y cambios del pedido activo, sin que
+  // el repartidor recargue a mano. Se combinan dos mecanismos:
+  //   1) WebSocket: empuja el aviso al instante cuando el negocio marca "listo"
+  //      y se asigna el pedido a este repartidor.
+  //   2) Polling de respaldo: si el WebSocket se cae o se pierde el evento, el
+  //      cambio igual se detecta. (Antes el panel dependía SOLO del WebSocket,
+  //      por eso el pedido no aparecía hasta recargar manualmente.)
+  (function () {
+    const REP_ID = {{ repartidor.id }};
+    const URL_ESTADO = "{% url 'estado_pedido_activo' %}";
+    const INTERVALO_MS = 8000;
+
+    // Estado del pedido activo tal como lo renderizó el servidor; contra esto
+    // se compara para recargar SOLO cuando hay un cambio real (evita recargas
+    // en bucle y que un pedido se “duplique” en pantalla).
+    const ACTUAL = {
+      pedido_id: {{ pedido.id|default:"null" }},
+      estado: "{{ pedido.estado|default:'' }}"
+    };
+    let recargando = false;
+
+    function recargarSiCambia(d) {
+      if (recargando) { return; }
+      const pid = (d.pedido_id === undefined) ? null : d.pedido_id;
+      const est = d.estado || "";
+      if (pid !== ACTUAL.pedido_id || est !== ACTUAL.estado) {
+        recargando = true;
+        location.reload();
+      }
+    }
+
+    async function sincronizar() {
+      try {
+        const r = await fetch(URL_ESTADO, {credentials: 'same-origin'});
+        if (!r.ok) { return; }               // error puntual: reintenta luego
+        recargarSiCambia(await r.json());
+      } catch (e) { /* sin conexión momentánea: se reintenta en el próximo ciclo */ }
+    }
+
+    // Polling de respaldo: mecanismo confiable, resistente a fallos del WS.
+    setInterval(sincronizar, INTERVALO_MS);
+
+    // WebSocket: aviso instantáneo. Ante cualquier evento verificamos el estado
+    // real vía sincronizar() para no recargar de más.
+    try {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const ws = new WebSocket(`${proto}://${location.host}/ws/repartidores/${REP_ID}/pedido-activo/`);
+      ws.onmessage = () => sincronizar();
+      ws.onerror = () => { /* si el WS cae, el polling mantiene el panel al día */ };
+    } catch (e) { /* entorno sin WebSocket: el polling es suficiente */ }
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Mis pedidos{% endblock %}
+{% block content %}
+<style>
+  /* Estrellas de calificación (widget). Los radios se ordenan al revés
+     para que el hover/checked coloree la estrella y todas las anteriores. */
+  .star-input { display: inline-flex; flex-direction: row-reverse; justify-content: flex-end; }
+  .star-input input { display: none; }
+  .star-input label {
+    font-size: 2rem; color: #dfe3e8; cursor: pointer; padding: 0 .1rem; line-height: 1;
+    transition: color .12s ease, transform .12s ease;
+  }
+  .star-input input:checked ~ label,
+  .star-input label:hover,
+  .star-input label:hover ~ label { color: #f5b301; }
+  .star-input label:hover { transform: scale(1.15); }
+  .star-input label:focus-visible {
+    outline: none; color: #f5b301; border-radius: .2rem;
+    box-shadow: 0 0 0 .2rem rgba(245,179,1,.35);
+  }
+
+  /* Bloques Negocio / Repartidor dentro del modal de calificación. */
+  .calif-item .calif-quien {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    font-weight: 700; color: var(--ink-soft, #5b6675);
+  }
+  .calif-item .calif-nombre { font-weight: 700; color: var(--ink, #1f2733); }
+
+  /* Mini indicador de estrellas en la fila del pedido. */
+  .calif-mini {
+    display: inline-flex; align-items: center; gap: .15rem;
+    background: #fff7e6; border: 1px solid #f6e2b0; color: #7a5b00;
+    border-radius: 999px; padding: .12rem .5rem; margin-right: .25rem;
+    font-size: .78rem; font-weight: 700; white-space: nowrap;
+  }
+  .calif-mini-lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .03em; color: #b08900; }
+  .calif-mini-star { color: #f5b301; }
+</style>
+
+<h2 class="mb-4">Mis pedidos</h2>
+<table class="table table-striped align-middle">
+  <thead>
+    <tr><th>#</th><th>Negocio</th><th>Fecha</th><th>Estado</th><th>Total</th><th>Calificación</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for p in pedidos %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.negocio.nombre }}</td>
+        <td>{{ p.creado_en|date:"d/m/Y H:i" }}</td>
+        <td>{% include "orders/_estado_badge.html" with estado=p.estado display=p.get_estado_display %}</td>
+        <td>S/ {{ p.total }}</td>
+        <td>
+          {% if p.calificacion %}
+            <span class="calif-mini" title="Calificación al negocio">
+              <span class="calif-mini-lbl">Neg</span><span class="calif-mini-star">★</span>{{ p.calificacion.puntaje_negocio }}
+            </span>
+            {% if p.calificacion.puntaje_repartidor %}
+              <span class="calif-mini" title="Calificación al repartidor">
+                <span class="calif-mini-lbl">Rep</span><span class="calif-mini-star">★</span>{{ p.calificacion.puntaje_repartidor }}
+              </span>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td class="text-end">
+          {% if p.estado != "ENTREGADO" and p.estado != "CANCELADO" %}
+            <a href="{% url 'tracking_pedido' p.id %}" class="btn btn-sm btn-outline-info">Tracking</a>
+          {% endif %}
+          {% if p.estado == "RECIBIDO" or p.estado == "CONFIRMADO" %}
+            <form action="{% url 'cancelar_pedido_cliente' p.id %}" method="post" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+            </form>
+          {% endif %}
+          {% if p.estado == "ENTREGADO" %}
+            {% if p.calificacion %}
+              <span class="badge bg-success">Calificado</span>
+            {% else %}
+              <button class="btn btn-sm btn-warning" type="button"
+                      data-bs-toggle="modal" data-bs-target="#calif-{{ p.id }}">
+                Calificar
+              </button>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" class="text-muted">Todavía no tienes pedidos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# ===== Modales de calificación (uno por pedido entregado sin calificar) ===== #}
+{% for p in pedidos %}
+  {% if p.estado == "ENTREGADO" and not p.calificacion %}
+    <div class="modal fade" id="calif-{{ p.id }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <form action="{% url 'calificar_pedido' p.id %}" method="post" class="modal-content">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h5 class="modal-title">Calificar pedido #{{ p.id }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted small mb-3">Toca las estrellas para puntuar y cuéntanos tu experiencia.</p>
+
+            <div class="calif-item mb-3">
+              <div class="calif-quien">Negocio</div>
+              <div class="calif-nombre mb-2">{{ p.negocio.nombre }}</div>
+              <div class="star-input">
+                {% for v in "54321" %}
+                  <input type="radio" id="n{{ p.id }}-{{ v }}" name="puntaje_negocio" value="{{ v }}" required>
+                  <label for="n{{ p.id }}-{{ v }}" title="{{ v }}" tabindex="0">★</label>
+                {% endfor %}
+              </div>
+              <input type="text" name="comentario_negocio" maxlength="255"
+                     class="form-control form-control-sm mt-2" placeholder="Comentario (opcional)">
+            </div>
+
+            {% if p.repartidor %}
+              <div class="calif-item">
+                <div class="calif-quien">Repartidor</div>
+                <div class="calif-nombre mb-2">{{ p.repartidor.usuario.get_full_name|default:p.repartidor.usuario.username }}</div>
+                <div class="star-input">
+                  {% for v in "54321" %}
+                    <input type="radio" id="r{{ p.id }}-{{ v }}" name="puntaje_repartidor" value="{{ v }}">
+                    <label for="r{{ p.id }}-{{ v }}" title="{{ v }}" tabindex="0">★</label>
+                  {% endfor %}
+                </div>
+                <input type="text" name="comentario_repartidor" maxlength="255"
+                       class="form-control form-control-sm mt-2" placeholder="Comentario (opcional)">
+              </div>
+            {% endif %}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-sm btn-success">Enviar calificación</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% block title %}Configuración - {{ negocio.nombre }}{% endblock %}
+{% block content %}
+<style>
+  /* Encabezados de sección dentro del formulario. */
+  .cfg-section {
+    font-weight: 700; color: var(--ink, #1f2733);
+    display: flex; align-items: center; gap: .4rem; margin-bottom: 1rem;
+  }
+  .cfg-label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    font-weight: 700; color: var(--ink-soft, #5b6675);
+  }
+  .cfg-value { font-size: 1.15rem; font-weight: 700; color: var(--ink, #1f2733); }
+  .badge-dia {
+    display: inline-block; padding: .3em .7em; border-radius: 999px;
+    background: var(--brand-soft, #fdeee8); color: var(--brand-700, #b93d18);
+    font-size: .78rem; font-weight: 600;
+  }
+
+  /* Días de atención como "chips" seleccionables (el checkbox nativo se oculta
+     y el estado marcado colorea la etiqueta). No cambia el widget ni sus datos. */
+  .dias-chips > div { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .25rem; }
+  .dias-chips > div > div { margin: 0; }
+  .dias-chips label {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem .95rem; border: 1.5px solid var(--line, #e9ecf1);
+    border-radius: 999px; font-weight: 600; color: var(--ink-soft, #5b6675);
+    background: #fff; cursor: pointer; user-select: none;
+    transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .dias-chips label:hover { border-color: #cdd3db; color: var(--ink, #1f2733); }
+  .dias-chips input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .dias-chips label:has(input:checked) {
+    background: var(--brand-soft, #fdeee8);
+    border-color: var(--brand, #ef5b2b);
+    color: var(--brand-700, #b93d18);
+  }
+  .dias-chips label:has(input:focus-visible) {
+    box-shadow: 0 0 0 .2rem rgba(239,91,43,.25);
+  }
+
+  /* Selector de hora propio (reemplaza el desplegable nativo de type=time). */
+  .time-picker { position: relative; }
+  .tp-toggle {
+    display: flex; align-items: center; gap: .5rem; width: 100%;
+    font-weight: 700; font-size: 1.1rem; text-align: left; cursor: pointer;
+  }
+  .tp-toggle .tp-ico { font-size: 1.05rem; }
+  .tp-toggle .tp-label { flex: 1; letter-spacing: .02em; }
+  .tp-toggle::after { margin-left: auto; }
+  .tp-menu {
+    max-height: 260px; overflow-y: auto; min-width: 100%;
+    padding: .35rem; scrollbar-width: thin;
+  }
+  .tp-opt {
+    text-align: center; font-weight: 600; border-radius: .45rem;
+    padding: .45rem .5rem; font-variant-numeric: tabular-nums;
+  }
+  .tp-opt.active { background: var(--brand, #ef5b2b); color: #fff; }
+  .tp-opt.active:hover { background: var(--brand-600, #d94a1f); color: #fff; }
+
+  .preset-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .55rem; }
+  .preset {
+    border: 1px solid var(--line, #e9ecf1); background: #fff; color: var(--ink-soft, #5b6675);
+    border-radius: 999px; padding: .22rem .65rem; font-size: .8rem; font-weight: 600;
+    cursor: pointer; transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .preset:hover { border-color: #cdd3db; color: var(--ink, #1f2733); }
+  .preset.active {
+    background: var(--brand-soft, #fdeee8);
+    border-color: var(--brand, #ef5b2b);
+    color: var(--brand-700, #b93d18);
+  }
+
+  .horario-resumen {
+    margin-top: 1.1rem; padding: .65rem .95rem; border-radius: .6rem;
+    background: #eef6ff; border: 1px solid #d6e6fb; color: #1d4ed8;
+    font-weight: 600; font-size: .9rem; display: flex; align-items: center; gap: .5rem;
+  }
+</style>
+
+<h2 class="mb-1">Configuración de {{ negocio.nombre }}</h2>
+<p class="text-muted mb-4">Define tu horario de atención y los días en que abres.</p>
+
+<div class="row g-4">
+  <!-- Resumen actual -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Configuración actual</h5>
+        {% if negocio.imagen %}
+          <img src="{{ negocio.imagen.url }}" alt="Imagen del local"
+               class="rounded mb-3" style="width: 100%; height: 150px; object-fit: cover;">
+        {% endif %}
+        <div class="mb-3">
+          <div class="cfg-label">🕒 Horario</div>
+          <div class="cfg-value">
+            {{ form.hora_apertura.value|default:"--:--" }} – {{ form.hora_cierre.value|default:"--:--" }}
+          </div>
+        </div>
+        <div>
+          <div class="cfg-label mb-1">📅 Días de atención</div>
+          {% if dias_actuales %}
+            <div class="d-flex flex-wrap gap-1">
+              {% for d in dias_actuales %}<span class="badge-dia">{{ d }}</span>{% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted">Sin días seleccionados</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <div class="col-lg-8">
+    <form method="post" enctype="multipart/form-data" class="card">
+      <div class="card-body p-4">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <!-- Horario -->
+        <h6 class="cfg-section">🕒 Horario de atención</h6>
+        <div class="row g-4 mb-1">
+          <div class="col-sm-6">
+            <label class="form-label" for="tp-btn-apertura">{{ form.hora_apertura.label }}</label>
+            <input type="hidden" name="hora_apertura" id="id_hora_apertura"
+                   value="{{ form.hora_apertura.value|default:'' }}">
+            <div class="dropdown time-picker" data-input="id_hora_apertura">
+              <button type="button" id="tp-btn-apertura"
+                      class="form-control dropdown-toggle tp-toggle" data-bs-toggle="dropdown"
+                      aria-expanded="false">
+                <span class="tp-ico">🕐</span><span class="tp-label">--:--</span>
+              </button>
+              <ul class="dropdown-menu tp-menu"></ul>
+            </div>
+            <div class="preset-row" data-target="id_hora_apertura">
+              <button type="button" class="preset" data-time="07:00">7:00</button>
+              <button type="button" class="preset" data-time="08:00">8:00</button>
+              <button type="button" class="preset" data-time="09:00">9:00</button>
+              <button type="button" class="preset" data-time="12:00">12:00</button>
+            </div>
+            {{ form.hora_apertura.errors }}
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="tp-btn-cierre">{{ form.hora_cierre.label }}</label>
+            <input type="hidden" name="hora_cierre" id="id_hora_cierre"
+                   value="{{ form.hora_cierre.value|default:'' }}">
+            <div class="dropdown time-picker" data-input="id_hora_cierre">
+              <button type="button" id="tp-btn-cierre"
+                      class="form-control dropdown-toggle tp-toggle" data-bs-toggle="dropdown"
+                      aria-expanded="false">
+                <span class="tp-ico">🕐</span><span class="tp-label">--:--</span>
+              </button>
+              <ul class="dropdown-menu tp-menu"></ul>
+            </div>
+            <div class="preset-row" data-target="id_hora_cierre">
+              <button type="button" class="preset" data-time="18:00">18:00</button>
+              <button type="button" class="preset" data-time="20:00">20:00</button>
+              <button type="button" class="preset" data-time="22:00">22:00</button>
+              <button type="button" class="preset" data-time="00:00">00:00</button>
+              <button type="button" class="preset" data-time="02:00">02:00</button>
+            </div>
+            {% if form.hora_cierre.help_text %}
+              <div class="form-text">{{ form.hora_cierre.help_text }}</div>
+            {% endif %}
+            {{ form.hora_cierre.errors }}
+          </div>
+        </div>
+        <div class="horario-resumen" id="horario-resumen" hidden>
+          <span>🟢</span><span id="horario-resumen-txt"></span>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Días -->
+        <h6 class="cfg-section">📅 {{ form.dias_atencion.label }}</h6>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dias="lunes,martes,miercoles,jueves,viernes">Entre semana</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dias="sabado,domingo">Fin de semana</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-dias="all">Todos</button>
+        </div>
+        <div class="dias-chips">
+          {{ form.dias_atencion }}
+        </div>
+        {{ form.dias_atencion.errors }}
+
+        <hr class="my-4">
+
+        <!-- Imagen del local -->
+        <h6 class="cfg-section">🏪 {{ form.imagen.label }}</h6>
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+          <div id="preview-imagen"
+               class="border rounded d-flex align-items-center justify-content-center bg-light"
+               style="width: 160px; height: 160px; overflow: hidden; flex: 0 0 auto;">
+            {% if negocio.imagen %}
+              <img src="{{ negocio.imagen.url }}" alt="Imagen del local"
+                   style="max-width: 100%; max-height: 100%; object-fit: cover;">
+            {% else %}
+              <span class="text-muted small text-center px-2">Sin imagen</span>
+            {% endif %}
+          </div>
+          <div class="flex-grow-1" style="min-width: 220px;">
+            {{ form.imagen }}
+            <div class="form-text">Foto del local que verán los clientes en el listado de negocios.</div>
+            {{ form.imagen.errors }}
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">Guardar configuración</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Previsualiza la imagen del local elegida, sin recargar.
+  (function () {
+    const input = document.getElementById('id_imagen');
+    const caja = document.getElementById('preview-imagen');
+    if (!input || !caja) { return; }
+    input.addEventListener('change', function () {
+      const archivo = input.files && input.files[0];
+      if (!archivo) { return; }
+      const url = URL.createObjectURL(archivo);
+      caja.innerHTML =
+        '<img src="' + url + '" alt="Previsualización" ' +
+        'style="max-width:100%;max-height:100%;object-fit:cover;">';
+    });
+  })();
+
+  // Atajos de selección de días: solo marcan/desmarcan los checkboxes que ya
+  // existen en el formulario (no cambian nombres, valores ni el envío).
+  (function () {
+    const cont = document.querySelector('.dias-chips');
+    if (!cont) { return; }
+    const checks = cont.querySelectorAll('input[type="checkbox"]');
+    document.querySelectorAll('[data-dias]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const spec = btn.dataset.dias;
+        checks.forEach((c) => {
+          if (spec === 'all') { c.checked = true; }
+          else if (spec === 'none') { c.checked = false; }
+          else { c.checked = spec.split(',').includes(c.value); }
+        });
+      });
+    });
+  })();
+
+  // Selector de hora propio (reemplaza el desplegable nativo). El valor se
+  // guarda en un input oculto con el mismo name y formato HH:MM que espera el
+  // formulario; el resumen se actualiza en vivo y avisa del horario nocturno.
+  (function () {
+    const ap = document.getElementById('id_hora_apertura');
+    const ci = document.getElementById('id_hora_cierre');
+    const caja = document.getElementById('horario-resumen');
+    const txt = document.getElementById('horario-resumen-txt');
+    if (!ap || !ci) { return; }
+
+    const norm = (v) => {
+      const m = (v || '').match(/^(\d{1,2}):(\d{2})/);
+      return m ? String(m[1]).padStart(2, '0') + ':' + m[2] : '';
+    };
+
+    // Franjas cada 15 minutos (00:00 … 23:45).
+    const OPCIONES = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        OPCIONES.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+      }
+    }
+
+    function fijar(input, valor) {
+      input.value = valor;
+      const picker = document.querySelector('.time-picker[data-input="' + input.id + '"]');
+      if (picker) {
+        picker.querySelector('.tp-label').textContent = valor || '--:--';
+        picker.querySelectorAll('.tp-opt').forEach((o) => {
+          o.classList.toggle('active', o.dataset.time === valor);
+        });
+      }
+      marcarPresets();
+      sync();
+    }
+
+    // Construye cada selector desplegable con sus opciones.
+    document.querySelectorAll('.time-picker').forEach((picker) => {
+      const input = document.getElementById(picker.dataset.input);
+      input.value = norm(input.value);                    // deja el valor como HH:MM
+      const menu = picker.querySelector('.tp-menu');
+      OPCIONES.forEach((t) => {
+        const li = document.createElement('li');
+        li.innerHTML = '<button type="button" class="dropdown-item tp-opt" data-time="' + t + '">' + t + '</button>';
+        menu.appendChild(li);
+      });
+      picker.querySelector('.tp-label').textContent = input.value || '--:--';
+      menu.querySelectorAll('.tp-opt').forEach((o) => {
+        o.classList.toggle('active', o.dataset.time === input.value);
+        o.addEventListener('click', () => fijar(input, o.dataset.time));
+      });
+      // Al abrir, centra la opción activa en la vista.
+      picker.addEventListener('shown.bs.dropdown', () => {
+        const act = menu.querySelector('.tp-opt.active');
+        if (act) { act.scrollIntoView({ block: 'center' }); }
+      });
+    });
+
+    // Atajos: escriben la hora en el input y actualizan el selector.
+    document.querySelectorAll('.preset-row').forEach((row) => {
+      const input = document.getElementById(row.dataset.target);
+      row.querySelectorAll('.preset').forEach((b) => {
+        b.addEventListener('click', () => fijar(input, b.dataset.time));
+      });
+    });
+
+    function marcarPresets() {
+      document.querySelectorAll('.preset-row').forEach((row) => {
+        const input = document.getElementById(row.dataset.target);
+        row.querySelectorAll('.preset').forEach((b) => {
+          b.classList.toggle('active', input.value === b.dataset.time);
+        });
+      });
+    }
+
+    function sync() {
+      if (ap.value && ci.value) {
+        let mensaje = `Abierto de ${ap.value} a ${ci.value}`;
+        if (ci.value <= ap.value) { mensaje += ' · cierra al día siguiente (madrugada)'; }
+        txt.textContent = mensaje;
+        caja.hidden = false;
+      } else {
+        caja.hidden = true;
+      }
+    }
+
+    marcarPresets();
+    sync();
+  })();
+</script>
+{% endblock %}

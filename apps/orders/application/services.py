@@ -433,12 +433,11 @@ class PedidoService:
             .order_by("-creado_en")
         )
         if solo_activos:
-            qs = qs.filter(estado__in=[
-                Estado.RECIBIDO,
-                Estado.CONFIRMADO,
-                Estado.EN_PREPARACION,
-                Estado.LISTO_PARA_RECOJO,
-            ])
+            # El pedido acompaña todo su ciclo en el panel del negocio: sigue
+            # visible mientras avanza (incluido EN_CAMINO, cuando el repartidor
+            # ya lo recogió) y solo desaparece al llegar a un estado final
+            # —ENTREGADO cuando el repartidor lo marca, o CANCELADO—.
+            qs = qs.exclude(estado__in=Estado.FINALES)
         return qs
 
     @staticmethod

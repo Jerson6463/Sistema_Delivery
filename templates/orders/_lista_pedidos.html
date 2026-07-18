@@ -1,0 +1,47 @@
+{% for p in pedidos %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div>
+          <h5 class="mb-1">Pedido #{{ p.id }}
+            {% include "orders/_estado_badge.html" with estado=p.estado display=p.get_estado_display %}
+          </h5>
+          <p class="mb-1 text-muted">
+            Cliente: {{ p.cliente.get_full_name|default:p.cliente.username }} · Total: S/ {{ p.total }}
+          </p>
+          <ul class="mb-0 small">
+            {% for d in p.detalles.all %}
+              <li>{{ d.cantidad }} x {{ d.producto.nombre }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="text-end">
+          {% if p.estado == Estado.RECIBIDO %}
+            <form action="{% url 'accion_negocio' p.id 'confirmar' %}" method="post" class="mb-1">
+              {% csrf_token %}<button class="btn btn-sm btn-success">Confirmar</button>
+            </form>
+          {% elif p.estado == Estado.CONFIRMADO %}
+            <form action="{% url 'accion_negocio' p.id 'preparar' %}" method="post" class="mb-1">
+              {% csrf_token %}<button class="btn btn-sm btn-primary">Iniciar preparación</button>
+            </form>
+          {% elif p.estado == Estado.EN_PREPARACION %}
+            <form action="{% url 'accion_negocio' p.id 'listo' %}" method="post" class="mb-1">
+              {% csrf_token %}<button class="btn btn-sm btn-warning">Listo para recojo</button>
+            </form>
+          {% endif %}
+
+          {% if p.estado == Estado.RECIBIDO or p.estado == Estado.CONFIRMADO %}
+            <form action="{% url 'accion_negocio' p.id 'rechazar' %}" method="post" class="mt-1">
+              {% csrf_token %}
+              <input type="text" name="motivo" class="form-control form-control-sm mb-1"
+                     placeholder="Motivo de rechazo">
+              <button class="btn btn-sm btn-outline-danger">Rechazar</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <p class="text-muted">No hay pedidos activos por atender.</p>
+{% endfor %}

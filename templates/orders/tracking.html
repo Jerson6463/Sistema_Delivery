@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Tracking pedido #{{ data.pedido_id }}{% endblock %}
+
+{% block breadcrumb %}
+{% if es_cliente %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'mis_pedidos' %}">Mis pedidos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Seguimiento #{{ data.pedido_id }}</li>
+  </ol>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<h2 class="mb-3">Seguimiento del pedido #{{ data.pedido_id }}</h2>
+<p>Estado actual:
+  <span id="estado-actual" class="badge bg-info text-dark">{{ data.estado_display }}</span>
+</p>
+
+{% if data.repartidor %}
+  <p class="text-muted">Repartidor: {{ data.repartidor.nombre }} ({{ data.repartidor.vehiculo }})</p>
+{% endif %}
+
+<div class="row">
+  <div class="col-md-5">
+    <h5>Línea de tiempo</h5>
+    <ul class="list-group" id="timeline">
+      {% for e in data.timeline %}
+        <li class="list-group-item d-flex justify-content-between">
+          <span>{{ e.estado_display }}</span>
+          <small class="text-muted">{{ e.timestamp }}</small>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="col-md-7">
+    <h5>Ubicación del repartidor</h5>
+    <div id="mapa" style="height:400px;border:1px solid #ddd;border-radius:6px;"></div>
+    <p id="sin-ubicacion" class="text-muted mt-2"
+       {% if data.ultima_ubicacion %}style="display:none;"{% endif %}>
+      Aún no hay ubicación GPS del repartidor.
+    </p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const PEDIDO_ID = {{ data.pedido_id }};
+  // Centro por defecto: Chiclayo
+  const DEFECTO = [-6.7714, -79.8409];
+  const inicial = {{ data.ultima_ubicacion|yesno:"true,false" }}
+      ? [{{ data.ultima_ubicacion.latitud|default:0 }}, {{ data.ultima_ubicacion.longitud|default:0 }}]
+      : DEFECTO;
+
+  const mapa = L.map('mapa').setView(inicial, 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(mapa);
+
+  // Leaflet fija el tamaño del contenedor en el momento de crear el mapa. Como
+  // el mapa vive dentro de una columna de Bootstrap (.col-md-7), su ancho puede
+  // no estar finalizado en ese instante y las teselas quedan "en gris" (el mapa
+  // no carga). invalidateSize() fuerza a recalcular el tamaño una vez que el
+  // layout está listo. Se llama en varios momentos para cubrir la carrera:
+  function ajustarMapa() { mapa.invalidateSize(); }
+  mapa.whenReady(ajustarMapa);                       // al terminar de inicializar
+  window.addEventListener('load', ajustarMapa);      // con imágenes/CSS ya cargados
+  setTimeout(ajustarMapa, 300);                      // respaldo si el layout tardó
+
+  let marcador = null;
+  function ponerMarcador(lat, lng) {
+    if (marcador) { marcador.setLatLng([lat, lng]); }
+    else { marcador = L.marker([lat, lng]).addTo(mapa); }
+    mapa.setView([lat, lng]);
+    document.getElementById('sin-ubicacion').style.display = 'none';
+  }
+
+  {% if data.ultima_ubicacion %}
+    ponerMarcador({{ data.ultima_ubicacion.latitud }}, {{ data.ultima_ubicacion.longitud }});
+  {% endif %}
+
+  // --- Actualización automática del estado del pedido ---
+  const ESTADOS_FINALES = ["ENTREGADO", "CANCELADO"];
+  const INTERVALO_MS = 10000;               // consulta el estado cada 10 s
+  const URL_MIS_PEDIDOS = "{% url 'mis_pedidos' %}";
+  const ES_CLIENTE = {{ es_cliente|yesno:"true,false" }};
+  const badge = document.getElementById('estado-actual');
+  let estadoActual = "{{ data.estado_actual }}";
+  let pollId = null;
+  let ws = null;
+
+  const esFinal = (estado) => ESTADOS_FINALES.includes(estado);
+
+  function detenerPolling() {
+    if (pollId !== null) { clearInterval(pollId); pollId = null; }
+  }
+
+  // El pedido llegó a un estado final: se cierra el seguimiento. Al cliente se
+  // le redirige automáticamente a "Mis pedidos" (sin recargar a mano); a otros
+  // roles solo se les detiene la actualización, sin sacarlos de la vista.
+  let cerrado = false;
+  function cerrarSeguimiento() {
+    if (cerrado) { return; }
+    cerrado = true;
+    detenerPolling();
+    if (ws) { try { ws.close(); } catch (e) { /* ya cerrado */ } }
+    if (ES_CLIENTE) { window.location.replace(URL_MIS_PEDIDOS); }
+  }
+
+  // Reescribe SOLO la parte del estado/timeline/ubicación (no toca el resto
+  // del diseño). Reemplazar innerHTML evita duplicar tarjetas o ítems.
+  function pintarTracking(d) {
+    if (d.estado_display) { badge.textContent = d.estado_display; }
+    if (Array.isArray(d.timeline)) {
+      document.getElementById('timeline').innerHTML = d.timeline.map(e =>
+        `<li class="list-group-item d-flex justify-content-between">
+           <span>${e.estado_display}</span><small class="text-muted">${e.timestamp}</small></li>`
+      ).join('');
+    }
+    if (d.ultima_ubicacion) {
+      ponerMarcador(d.ultima_ubicacion.latitud, d.ultima_ubicacion.longitud);
+    }
+    if (d.estado_actual) {
+      estadoActual = d.estado_actual;
+      if (esFinal(estadoActual)) { cerrarSeguimiento(); }   // cierra/redirige
+    }
+  }
+
+  async function refrescar() {
+    try {
+      const r = await fetch(`/api/pedidos/${PEDIDO_ID}/tracking/`, {credentials: 'same-origin'});
+      if (!r.ok) { return; }                 // error puntual: reintenta al próximo ciclo
+      pintarTracking(await r.json());
+    } catch (e) { /* sin conexión: la vista queda intacta y reintenta luego */ }
+  }
+
+  // Polling periódico: mecanismo principal, resistente a fallos del WebSocket.
+  // No se inicia si el pedido ya está en un estado final.
+  if (!esFinal(estadoActual)) {
+    pollId = setInterval(refrescar, INTERVALO_MS);
+  }
+
+  // WebSocket: empuja los cambios al instante cuando está disponible.
+  try {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws/pedidos/${PEDIDO_ID}/tracking/`);
+    ws.onmessage = (ev) => {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'ubicacion_actualizada') {
+        ponerMarcador(d.latitud, d.longitud);            // marcador al instante
+      } else if (d.type === 'pedido_estado_actualizado') {
+        badge.textContent = d.estado_display || d.estado;
+        estadoActual = d.estado || estadoActual;
+        if (esFinal(estadoActual)) { cerrarSeguimiento(); }  // entregado/cancelado
+        else { refrescar(); }                            // sincroniza timeline/ubicación
+      }
+    };
+    ws.onerror = () => { /* si el WS cae, el polling mantiene la vista al día */ };
+  } catch (e) { /* entorno sin WebSocket: el polling es suficiente */ }
+</script>
+{% endblock %}

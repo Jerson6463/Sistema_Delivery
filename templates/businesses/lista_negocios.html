@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Negocios{% endblock %}
+{% block content %}
+<h2 class="mb-4">Negocios disponibles</h2>
+
+{% if sin_distrito %}
+  <div class="alert alert-warning">
+    Para ver los negocios de tu zona primero debes completar tu <strong>distrito</strong>.
+    <a href="{% url 'editar_perfil' %}" class="alert-link">Configúralo en tu perfil</a>.
+  </div>
+{% else %}
+
+{% if zona_cliente %}
+  <p class="text-muted">Mostrando negocios de tu zona: <strong>{{ zona_cliente }}</strong>.</p>
+{% endif %}
+
+<form method="get" class="row g-2 mb-4">
+  <div class="col-auto">
+    <select name="categoria" class="form-select">
+      <option value="">Todas las categorías</option>
+      {% for value, label in categorias %}
+        <option value="{{ value }}" {% if value == categoria_actual %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <div class="form-check mt-2">
+      <input class="form-check-input" type="checkbox" name="disponible" value="true"
+             id="disp" {% if solo_abiertos %}checked{% endif %}>
+      <label class="form-check-label" for="disp">Solo abiertos ahora</label>
+    </div>
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+  </div>
+</form>
+
+<div class="row row-cols-1 row-cols-md-3 g-3">
+  {% for item in items %}
+    <div class="col">
+      <div class="card h-100">
+        {% if item.negocio.imagen %}
+          <img src="{{ item.negocio.imagen.url }}" class="card-img-top"
+               alt="{{ item.negocio.nombre }}" style="height: 160px; object-fit: cover;">
+        {% else %}
+          <div class="card-img-top d-flex align-items-center justify-content-center bg-light text-muted small"
+               style="height: 160px;">Sin imagen</div>
+        {% endif %}
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <h5 class="card-title mb-1">{{ item.negocio.nombre }}</h5>
+            {% if item.estado == "Abierto" %}
+              <span class="badge bg-success">Abierto</span>
+            {% else %}
+              <span class="badge bg-secondary">Cerrado</span>
+            {% endif %}
+          </div>
+          <p class="text-muted mb-1">{{ item.negocio.get_categoria_display }}</p>
+          <p class="mb-1 small">{{ item.negocio.direccion }}</p>
+          <p class="mb-0">⭐ {{ item.negocio.calificacion_promedio }}</p>
+          {% if item.estado == "Abierto" %}
+            <a href="{% url 'detalle_negocio' item.negocio.id %}" class="btn btn-sm btn-outline-primary mt-2">Ver productos</a>
+          {% else %}
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" disabled>Cerrado</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <p class="text-muted">No hay negocios que coincidan con el filtro.</p>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

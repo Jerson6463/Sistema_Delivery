@@ -1,0 +1,35 @@
+# El Dockerfile hace `COPY . .`: todo lo listado aquí queda FUERA de la imagen.
+
+# Credenciales. El contenedor las recibe por `env_file` en tiempo de
+# ejecución, así que el .env NUNCA debe hornearse en la imagen.
+.env
+
+# Control de versiones y metadatos de herramientas
+.git/
+.gitignore
+.agents/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+.venv/
+env/
+
+# Archivos subidos y estáticos recolectados: se montan como volumen,
+# no se copian.
+media/
+staticfiles/
+
+# Tests / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Mi carrito{% endblock %}
+{% block content %}
+<h2 class="mb-4">Mi carrito</h2>
+
+{% if lineas %}
+<table class="table align-middle">
+  <thead><tr><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th><th></th></tr></thead>
+  <tbody>
+    {% for l in lineas %}
+      <tr>
+        <td>{{ l.producto.nombre }}</td>
+        <td>S/ {{ l.producto.precio }}</td>
+        <td style="width:140px;">
+          <form action="{% url 'actualizar_carrito' l.producto.id %}" method="post" class="d-flex">
+            {% csrf_token %}
+            <input type="number" name="cantidad" value="{{ l.cantidad }}" min="0"
+                   class="form-control form-control-sm me-1">
+            <button class="btn btn-sm btn-outline-secondary">OK</button>
+          </form>
+        </td>
+        <td>S/ {{ l.subtotal }}</td>
+        <td>
+          <form action="{% url 'remover_del_carrito' l.producto.id %}" method="post">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger">Quitar</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="fs-5">Subtotal: <strong>S/ {{ subtotal }}</strong></p>
+<p class="text-muted small">El costo de envío se calcula según la zona elegida.</p>
+
+<hr>
+<h4 class="mb-3">Datos de entrega</h4>
+<form action="{% url 'confirmar_pedido' %}" method="post" class="col-md-6">
+  {% csrf_token %}
+  <div class="mb-3">
+    <label class="form-label">Dirección de entrega</label>
+    <input type="text" name="direccion_entrega" class="form-control"
+           value="{{ direccion_cliente }}" required>
+    {% if direccion_cliente %}
+      <div class="form-text">
+        Usamos la dirección de tu perfil. Puedes editarla solo para este pedido.
+      </div>
+    {% else %}
+      <div class="alert alert-warning mt-2 mb-0 py-2 small">
+        No tienes una dirección guardada. Escríbela aquí o
+        <a href="{% url 'editar_perfil' %}">complétala en tu perfil</a>
+        para no volver a ingresarla.
+      </div>
+    {% endif %}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Direccion de Entrega</label>
+    <select name="zona_entrega_id" class="form-select" required>
+      <option value="">Selecciona una zona...</option>
+      {% for t in zonas %}
+        <option value="{{ t.zona_entrega.id }}">
+          {{ t.zona_entrega }} — envío S/ {{ t.costo }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Método de pago</label>
+    <select name="metodo_pago" class="form-select" required>
+      {% for value, label in metodos_pago %}
+        <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-success">Confirmar pedido</button>
+</form>
+
+{% else %}
+  <p class="text-muted">Tu carrito está vacío. <a href="{% url 'lista_negocios' %}">Ver negocios</a></p>
+{% endif %}
+{% endblock %}

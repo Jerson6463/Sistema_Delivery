@@ -9,6 +9,8 @@ from apps.businesses.domain.horario import DIAS
 from apps.businesses.models import Negocio, Zona, ZonaEntrega
 from apps.catalog.models import Producto
 from apps.orders.application.services import PedidoService
+from apps.orders.domain.states import Estado
+from apps.orders.models import Pedido
 from apps.orders.web.cart import SESSION_KEY
 
 
@@ -173,3 +175,47 @@ class PedidoServiceCarritoTests(TestCase):
 
         self.assertEqual(pedido.negocio_id, self.negocio.id)
         self.assertEqual(session[SESSION_KEY], {"negocio_id": None, "items": {}})
+
+
+class ListarPedidosNegocioCicloVidaTests(TestCase):
+    """El pedido acompaña todo su ciclo en el panel y solo desaparece al final."""
+
+    def setUp(self):
+        self.cliente = User.objects.create_user(
+            username="cliente", email="cliente@example.com", password="clave",
+            rol=User.Rol.CLIENTE, aprobado=True,
+        )
+        self.dueno = User.objects.create_user(
+            username="dueno", email="dueno@example.com", password="clave",
+            rol=User.Rol.NEGOCIO, aprobado=True,
+        )
+        self.zona = Zona.objects.create(nombre="Centro")
+        self.distrito = ZonaEntrega.objects.create(zona=self.zona, distrito="Miraflores")
+        self.negocio = Negocio.objects.create(
+            usuario_dueno=self.dueno, nombre="Bodega", direccion="Av. Uno",
+            aprobado=True, activo=True, zona=self.distrito,
+            horario_json=_horario(abierto=True),
+        )
+
+    def _pedido(self, estado):
+        return Pedido.objects.create(
+            cliente=self.cliente, negocio=self.negocio, estado=estado,
+            subtotal=Decimal("10.00"), costo_envio=Decimal("5.00"),
+            total=Decimal("15.00"), direccion_entrega="Av. Cliente",
+            zona_entrega=self.distrito, metodo_pago="EFECTIVO",
+        )
+
+    def test_en_camino_sigue_visible_en_el_panel(self):
+        pedido = self._pedido(Estado.EN_CAMINO)
+        activos = PedidoService.listar_pedidos_negocio(self.negocio, solo_activos=True)
+        self.assertIn(pedido, activos)
+
+    def test_entregado_desaparece_del_panel(self):
+        pedido = self._pedido(Estado.ENTREGADO)
+        activos = PedidoService.listar_pedidos_negocio(self.negocio, solo_activos=True)
+        self.assertNotIn(pedido, activos)
+
+    def test_cancelado_desaparece_del_panel(self):
+        pedido = self._pedido(Estado.CANCELADO)
+        activos = PedidoService.listar_pedidos_negocio(self.negocio, solo_activos=True)
+        self.assertNotIn(pedido, activos)

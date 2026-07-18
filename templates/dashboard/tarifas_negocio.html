@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Tarifas de envío - {{ negocio.nombre }}{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}">Panel de control</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Tarifas — {{ negocio.nombre }}</li>
+  </ol>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Tarifas de envío — {{ negocio.nombre }}</h2>
+  <a href="{% url 'admin_dashboard' %}" class="btn btn-sm btn-outline-secondary">← Volver al panel</a>
+</div>
+
+<p class="text-muted mb-4">
+  Estado del negocio:
+  {% if negocio.aprobado %}
+    <span class="badge bg-success">Activo</span>
+  {% else %}
+    <span class="badge bg-warning text-dark">Pendiente de activación</span>
+  {% endif %}
+</p>
+
+<!-- Zonas y costos configurados -->
+<h4>Zonas y costos configurados</h4>
+<table class="table align-middle mb-4">
+  <thead>
+    <tr><th>Zona</th><th>Distrito</th><th style="width: 240px;">Costo (S/)</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for t in tarifas %}
+      <tr>
+        <td>{{ t.zona_entrega.zona.nombre }}</td>
+        <td>{{ t.zona_entrega.distrito }}</td>
+        <td>
+          <form method="post" class="d-flex gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="zona" value="{{ t.zona_entrega.id }}">
+            <input type="number" step="0.01" min="0" name="costo"
+                   value="{{ t.costo }}" class="form-control form-control-sm" required>
+            <button class="btn btn-sm btn-primary">Actualizar</button>
+          </form>
+        </td>
+        <td class="text-end">
+          <form method="post" action="{% url 'eliminar_tarifa' negocio.id t.id %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-muted">Aún no hay zonas de envío configuradas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Agregar nueva zona / tarifa -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Agregar zona y costo</h5>
+    <form method="post" class="row g-3 align-items-end">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="col-md-6">
+        {{ form.zona.label_tag }}{{ form.zona }}{{ form.zona.errors }}
+      </div>
+      <div class="col-md-4">
+        {{ form.costo.label_tag }}{{ form.costo }}{{ form.costo.errors }}
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-success w-100">Guardar tarifa</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Activación del negocio -->
+{% if negocio.aprobado %}
+  <div class="alert alert-success mb-0">Este negocio ya está activo.</div>
+{% elif tarifas %}
+  <form method="post" action="{% url 'aprobar_negocio' negocio.id %}">
+    {% csrf_token %}
+    <button class="btn btn-lg btn-success">Activar cuenta del negocio</button>
+  </form>
+{% else %}
+  <div class="alert alert-warning mb-0">
+    Debes configurar al menos una zona de envío con su costo antes de activar el negocio.
+  </div>
+{% endif %}
+{% endblock %}
