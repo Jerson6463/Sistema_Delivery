@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Registro de {{ rol }}{% endblock %}
 {% block content %}
+
+<style>
+  /* Resalta en rojo el campo que tiene errores y muestra su mensaje. */
+  .campo.has-error input,
+  .campo.has-error select,
+  .campo.has-error textarea {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 .2rem rgba(220, 53, 69, .15) !important;
+  }
+  .campo .error-msg {
+    color: #b91c1c;
+    font-size: .85rem;
+    font-weight: 600;
+    margin-top: .35rem;
+  }
+  .campo .form-text { color: var(--ink-soft); font-size: .82rem; margin-top: .3rem; }
+  .campo .form-text ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+</style>
+
 <div class="row justify-content-center">
   <div class="col-md-5">
     <h2 class="mb-4">Registro de {{ rol }}</h2>
@@ -12,9 +31,37 @@
       </div>
     {% endif %}
 
-    <form method="post">
+    {# Errores que no pertenecen a un campo concreto (p. ej. credenciales). #}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate>
       {% csrf_token %}
-      {{ form.as_p }}
+
+      {% for field in form %}
+        <div class="campo mb-3 {% if field.errors %}has-error{% endif %}">
+          <label for="{{ field.id_for_label }}" class="form-label">
+            {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+          </label>
+
+          {{ field }}
+
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text|safe }}</div>
+          {% endif %}
+
+          {# Muestra con precisión cada error de este campo. #}
+          {% for error in field.errors %}
+            <div class="error-msg">{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
       <button type="submit" class="btn btn-primary w-100">Registrarme</button>
     </form>
 

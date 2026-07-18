@@ -1,7 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
 from django.shortcuts import redirect, render
+from django.urls import reverse_lazy
 
 from apps.accounts.application.services import AccountService
 from apps.accounts.models import User
@@ -93,3 +95,21 @@ def editar_perfil(request):
         "datos_form": datos_form,
         "perfil_form": perfil_form,
     })
+
+
+class LoginConRedireccionView(LoginView):
+    """
+    Login estándar que, tras autenticar, envía a los administradores
+    directamente al panel de control (panel/admin/). El resto de usuarios
+    sigue el flujo normal (parámetro ``next`` o LOGIN_REDIRECT_URL).
+    """
+
+    template_name = "accounts/login.html"
+    redirect_authenticated_user = True
+
+    def get_default_redirect_url(self):
+        # Respeta el ``next`` explícito (get_redirect_url); solo cambia el
+        # destino por defecto cuando el usuario es administrador.
+        if self.request.user.es_admin:
+            return reverse_lazy("admin_dashboard")
+        return super().get_default_redirect_url()

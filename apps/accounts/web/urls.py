@@ -1,4 +1,4 @@
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import LogoutView
 from django.urls import path
 
 from apps.accounts.web import views
@@ -11,10 +11,8 @@ urlpatterns = [
     path("perfil/editar/", views.editar_perfil, name="editar_perfil"),
     path(
         "login/",
-        LoginView.as_view(
-            template_name="accounts/login.html",
+        views.LoginConRedireccionView.as_view(
             authentication_form=LoginConAprobacionForm,
-            redirect_authenticated_user=True,
         ),
         name="login",
     ),
