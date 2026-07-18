@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    # Sin healthcheck, `web` solo podía esperar a `service_started`, que
+    # garantiza que el contenedor arrancó pero no que Redis acepte
+    # conexiones: el channel layer podía fallar en el arranque.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: .
+
+    # En dev usamos runserver: con 'daphne' en INSTALLED_APPS ya sirve ASGI
+    # (Channels/WebSocket) y conserva el autoreload. En prod se usa daphne.
+    #
+    # Las migraciones NO se aplican al arrancar, a propósito: se ejecutan a
+    # mano con `docker compose exec web python manage.py migrate` para poder
+    # revisarlas antes. Tras un `up` en una base nueva, ese es el primer paso.
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # Sin `restart` a propósito, al contrario que db/redis: en dev, un error
+    # de arranque debe parar y mostrarse, no entrar en bucle de reinicios
+    # que inunde los logs. runserver ya recarga solo ante errores de código.
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_plataforma_delivery
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@delivery.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  pgadmin_data:

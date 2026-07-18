@@ -1,0 +1,33 @@
+# Variables de entorno (contienen credenciales: nunca se versionan)
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+.venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# Archivos subidos por usuarios y estáticos recolectados
+media/
+staticfiles/
+
+# Tests / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
