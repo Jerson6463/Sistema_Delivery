@@ -1,6 +1,8 @@
 """
 Capa de aplicación de negocios.
 """
+from decimal import Decimal, InvalidOperation
+
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.db.models.deletion import ProtectedError
@@ -174,6 +176,37 @@ class TarifaEnvioService:
                 "creado_por": actor,
             },
         )
+        return tarifa
+
+    @staticmethod
+    @transaction.atomic
+    def actualizar_costo(actor, negocio_id, tarifa_id, nuevo_costo):
+        """
+        Actualiza SOLO el precio de una tarifa existente (edición en línea).
+
+        A diferencia de `guardar_tarifa`, no depende del catálogo de distritos
+        del negocio: la zona ya está fijada en la tarifa, así que solo se
+        valida y guarda el monto. Valida que la tarifa pertenezca al negocio.
+        """
+        TarifaEnvioService._exigir_admin(actor)
+
+        try:
+            costo = Decimal(str(nuevo_costo).strip())
+        except (InvalidOperation, TypeError, AttributeError):
+            raise DomainException(
+                "El precio debe ser un número válido, por ejemplo 5.50."
+            )
+        if costo < 0:
+            raise DomainException("El precio no puede ser negativo.")
+        costo = costo.quantize(Decimal("0.01"))
+
+        try:
+            tarifa = TarifaEnvio.objects.get(pk=tarifa_id, negocio_id=negocio_id)
+        except TarifaEnvio.DoesNotExist:
+            raise DomainException("La tarifa que intentas actualizar no existe.")
+
+        tarifa.costo = costo
+        tarifa.save(update_fields=["costo", "actualizado_en"])
         return tarifa
 
     @staticmethod

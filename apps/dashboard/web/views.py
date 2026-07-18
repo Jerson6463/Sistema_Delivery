@@ -60,6 +60,24 @@ def configurar_tarifas(request, negocio_id):
     negocio = get_object_or_404(Negocio, pk=negocio_id)
 
     if request.method == "POST":
+        # Edición en línea del precio de una tarifa existente: se identifica
+        # por `tarifa_id` y NO pasa por TarifaEnvioForm (cuyo catálogo de
+        # distritos restringido podría rechazar la fila y descartar el cambio
+        # en silencio). Solo valida y guarda el monto.
+        tarifa_id = request.POST.get("tarifa_id")
+        if tarifa_id:
+            try:
+                TarifaEnvioService.actualizar_costo(
+                    request.user,
+                    negocio.id,
+                    tarifa_id,
+                    request.POST.get("costo"),
+                )
+                messages.success(request, "Precio actualizado.")
+            except DomainException as e:
+                messages.error(request, str(e))
+            return redirect("configurar_tarifas", negocio_id=negocio.id)
+
         form = TarifaEnvioForm(request.POST, negocio=negocio)
         if form.is_valid():
             zona = form.cleaned_data["zona"]

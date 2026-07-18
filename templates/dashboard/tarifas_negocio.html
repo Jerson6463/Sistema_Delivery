@@ -10,7 +10,14 @@
 {% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="mb-0">Tarifas de envío — {{ negocio.nombre }}</h2>
+  <h2 class="mb-0">
+    Tarifas de envío — {{ negocio.nombre }}
+    {% if negocio.zona %}
+      <span class="badge bg-secondary align-middle ms-2">📍 {{ negocio.zona.distrito }}</span>
+    {% else %}
+      <span class="badge bg-light text-muted align-middle ms-2">Sin distrito</span>
+    {% endif %}
+  </h2>
   <a href="{% url 'admin_dashboard' %}" class="btn btn-sm btn-outline-secondary">← Volver al panel</a>
 </div>
 
@@ -27,7 +34,12 @@
 <h4>Zonas y costos configurados</h4>
 <table class="table align-middle mb-4">
   <thead>
-    <tr><th>Zona</th><th>Distrito</th><th style="width: 240px;">Costo (S/)</th><th></th></tr>
+    <tr>
+      <th>Zona</th>
+      <th>Distrito</th>
+      <th style="width: 200px;">Precio (S/)</th>
+      <th style="width: 220px;" class="text-end">Acciones</th>
+    </tr>
   </thead>
   <tbody>
     {% for t in tarifas %}
@@ -35,19 +47,23 @@
         <td>{{ t.zona_entrega.zona.nombre }}</td>
         <td>{{ t.zona_entrega.distrito }}</td>
         <td>
-          <form method="post" class="d-flex gap-2">
+          <form method="post" id="tarifa-{{ t.id }}">
             {% csrf_token %}
-            <input type="hidden" name="zona" value="{{ t.zona_entrega.id }}">
+            <input type="hidden" name="tarifa_id" value="{{ t.id }}">
             <input type="number" step="0.01" min="0" name="costo"
                    value="{{ t.costo }}" class="form-control form-control-sm" required>
-            <button class="btn btn-sm btn-primary">Actualizar</button>
           </form>
         </td>
         <td class="text-end">
-          <form method="post" action="{% url 'eliminar_tarifa' negocio.id t.id %}" class="d-inline">
-            {% csrf_token %}
-            <button class="btn btn-sm btn-outline-danger">Eliminar</button>
-          </form>
+          <div class="d-inline-flex gap-2">
+            <button type="submit" form="tarifa-{{ t.id }}" class="btn btn-sm btn-primary">
+              Actualizar
+            </button>
+            <form method="post" action="{% url 'eliminar_tarifa' negocio.id t.id %}" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+            </form>
+          </div>
         </td>
       </tr>
     {% empty %}
